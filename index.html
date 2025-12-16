@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Real-Time Chat App</title>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  background: #ece5dd;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.app {
+  width: 420px;
+  height: 620px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+}
+
+/* HEADER */
+.header {
+  background: #075e54;
+  color: white;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header span {
+  font-weight: bold;
+}
+
+.status {
+  font-size: 12px;
+  color: #c8f7e3;
+}
+
+/* SETTINGS */
+.settings {
+  padding: 8px;
+  background: #f0f0f0;
+  display: flex;
+  gap: 6px;
+}
+
+.settings input {
+  flex: 1;
+  padding: 6px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+/* CHAT */
+.messages {
+  flex: 1;
+  padding: 10px;
+  background: #ece5dd;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  max-width: 75%;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 14px;
+}
+
+.me {
+  align-self: flex-end;
+  background: #dcf8c6;
+}
+
+.other {
+  align-self: flex-start;
+  background: #fff;
+}
+
+.user {
+  font-size: 11px;
+  font-weight: bold;
+  margin-bottom: 3px;
+}
+
+.time {
+  font-size: 10px;
+  text-align: right;
+  color: #555;
+}
+
+/* INPUT */
+.input-area {
+  display: flex;
+  padding: 8px;
+  background: #f0f0f0;
+  border-top: 1px solid #ddd;
+}
+
+.input-area input {
+  flex: 1;
+  padding: 8px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  outline: none;
+  margin-right: 6px;
+}
+
+.input-area button {
+  background: #075e54;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <span>Chat App</span>
+    <span class="status" id="status">Connecting...</span>
+  </div>
+
+  <!-- USER / ROOM SETTINGS -->
+  <div class="settings">
+    <input id="username" placeholder="Your name" value="User">
+    <input id="room" placeholder="Room (global)">
+    <input id="toUser" placeholder="Private to (optional)">
+  </div>
+
+  <!-- CHAT AREA -->
+  <div class="messages" id="messages"></div>
+
+  <!-- INPUT -->
+  <div class="input-area">
+    <input id="text" placeholder="Type a message..." onkeydown="enterSend(event)">
+    <button onclick="sendMessage()">➤</button>
+  </div>
+
+</div>
+
+<script>
+const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
+const wsHost = location.host || "localhost:8080";
+const socket = new WebSocket(`${wsProtocol}://${wsHost}`);
+
+const messages = document.getElementById("messages");
+const statusEl = document.getElementById("status");
+
+socket.onopen = () => statusEl.textContent = "Online";
+socket.onclose = () => statusEl.textContent = "Offline";
+
+socket.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  renderMessage(msg);
+};
+
+function renderMessage({ user, text }) {
+  const myName = document.getElementById("username").value || "User";
+
+  const div = document.createElement("div");
+  div.classList.add("message");
+  div.classList.add(user === myName ? "me" : "other");
+
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  div.innerHTML = `
+    <div class="user">${user}</div>
+    <div>${text}</div>
+    <div class="time">${time}</div>
+  `;
+
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function sendMessage() {
+  const user = document.getElementById("username").value || "User";
+  const text = document.getElementById("text").value.trim();
+  const room = document.getElementById("room").value || "global";
+  const to = document.getElementById("toUser").value || null;
+
+  if (!text) return;
+
+  socket.send(JSON.stringify({
+    user,
+    text,
+    room,     // group chat
+    to        // private chat
+  }));
+
+  document.getElementById("text").value = "";
+}
+
+function enterSend(e) {
+  if (e.key === "Enter") sendMessage();
+}
+</script>
+
+</body>
+</html>

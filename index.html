@@ -1,346 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Real-Time Chat App</title>
-
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: Arial, sans-serif;
-}
-
-body {
-  background: #ece5dd;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.app {
-  width: 420px;
-  height: 620px;
-  background: #fff;
-  display: flex;
-  flex-direction: column;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-}
-
-/* HEADER */
-.header {
-  background: #075e54;
-  color: white;
-  padding: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header span {
-  font-weight: bold;
-}
-
-.status {
-  font-size: 12px;
-  color: #c8f7e3;
-}
-
-/* SETTINGS */
-.settings {
-  padding: 8px;
-  background: #f0f0f0;
-  display: flex;
-  gap: 6px;
-}
-
-.settings input {
-  flex: 1;
-  padding: 6px;
-  border-radius: 5px;
-  border: 1px solid #ccc;
-}
-
-/* CHAT */
-.messages {
-  flex: 1;
-  padding: 10px;
-  background: #ece5dd;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.message {
-  max-width: 75%;
-  margin-bottom: 8px;
-  padding: 8px 10px;
-  border-radius: 7px;
-  font-size: 14px;
-}
-
-.me {
-  align-self: flex-end;
-  background: #dcf8c6;
-}
-
-.other {
-  align-self: flex-start;
-  background: #fff;
-}
-
-.user {
-  font-size: 11px;
-  font-weight: bold;
-  margin-bottom: 3px;
-}
-
-.time {
-  font-size: 10px;
-  text-align: right;
-  color: #555;
-}
-
-/* INPUT */
-.input-area {
-  display: flex;
-  padding: 8px;
-  background: #f0f0f0;
-  border-top: 1px solid #ddd;
-}
-
-.input-area input {
-  flex: 1;
-  padding: 8px;
-  border-radius: 20px;
-  border: 1px solid #ccc;
-  outline: none;
-  margin-right: 6px;
-}
-
-.input-area button {
-  background: #075e54;
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-/* ONLINE USERS */
-.online-users {
-  padding: 8px;
-  background: #f0f0f0;
-  border-bottom: 1px solid #ddd;
-  max-height: 100px;
-  overflow-y: auto;
-}
-
-.online-users h4 {
-  margin: 0 0 4px 0;
-  font-size: 14px;
-  font-weight: bold;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time Chat App</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
+  <div class="app-container">
+    <!-- Left Sidebar: User List -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Chat App</h2>
+        <div class="status-indicator" id="connectionStatus">
+          <span class="status-dot"></span>
+          <span id="statusText">Connecting...</span>
+        </div>
+      </div>
 
-<div class="app">
+      <!-- Username Registration -->
+      <div class="user-registration" id="userRegistration">
+        <input 
+          type="text" 
+          id="usernameInput" 
+          placeholder="Enter your username" 
+          maxlength="20"
+        >
+        <button id="registerBtn">Join Chat</button>
+        <div id="registrationError" class="error-message"></div>
+      </div>
 
-  <!-- HEADER -->
-  <div class="header">
-    <span>Chat App</span>
-    <span class="status" id="status">Connecting...</span>
+      <!-- Current User Display -->
+      <div class="current-user" id="currentUser" style="display: none;">
+        <div class="user-info">
+          <span class="user-avatar">👤</span>
+          <span id="currentUsername"></span>
+        </div>
+      </div>
+
+      <!-- Tabs for Users and Groups -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="users">Users</button>
+        <button class="tab-btn" data-tab="groups">Groups</button>
+      </div>
+
+      <!-- Online Users List -->
+      <div class="users-section" id="usersSection">
+        <h3>Online Users</h3>
+        <div id="usersList" class="users-list">
+          <p class="empty-state">No users online</p>
+        </div>
+      </div>
+
+      <!-- Groups Section -->
+      <div class="users-section" id="groupsSection" style="display: none;">
+        <div class="group-header">
+          <h3>Groups</h3>
+          <button id="createGroupBtn" class="create-btn" title="Create Group">+</button>
+        </div>
+        <div id="groupsList" class="users-list">
+          <p class="empty-state">No groups available</p>
+        </div>
+      </div>
+
+      <!-- Create Group Modal -->
+      <div id="createGroupModal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>Create or Join Group</h3>
+            <button class="close-btn" id="closeModalBtn">&times;</button>
+          </div>
+          <div class="modal-body">
+            <input 
+              type="text" 
+              id="groupNameInput" 
+              placeholder="Enter group name" 
+              maxlength="30"
+            >
+            <div id="groupError" class="error-message"></div>
+          </div>
+          <div class="modal-footer">
+            <button id="createGroupSubmitBtn" class="submit-btn">Create/Join</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add/Remove User Modal -->
+      <div id="userManagementModal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="userManagementTitle">Add User to Group</h3>
+            <button class="close-btn" id="closeUserModalBtn">&times;</button>
+          </div>
+          <div class="modal-body">
+            <input 
+              type="text" 
+              id="usernameInputModal" 
+              placeholder="Enter username" 
+              maxlength="20"
+            >
+            <div id="userManagementError" class="error-message"></div>
+          </div>
+          <div class="modal-footer">
+            <button id="userManagementSubmitBtn" class="submit-btn">Confirm</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="chat-container">
+      <!-- Chat Header -->
+      <div class="chat-header">
+        <div id="chatHeaderContent">
+          <h2>Select a user to start chatting</h2>
+        </div>
+        <div id="groupActions" style="display: none;">
+          <button id="addUserBtn" class="action-btn" title="Add User">+ User</button>
+          <button id="removeUserBtn" class="action-btn" title="Remove User">- User</button>
+        </div>
+      </div>
+
+      <!-- Messages Area -->
+      <div class="messages-container" id="messagesContainer">
+        <div class="welcome-message">
+          <p>👋 Welcome! Register with a username and select a user to start chatting.</p>
+        </div>
+      </div>
+
+      <!-- Message Input Area -->
+      <div class="input-container" id="inputContainer" style="display: none;">
+        <div class="input-wrapper">
+          <input 
+            type="text" 
+            id="messageInput" 
+            placeholder="Type a message..." 
+            maxlength="500"
+          >
+          <button id="sendBtn" disabled>
+            <span>Send</span>
+          </button>
+        </div>
+      </div>
+    </main>
   </div>
 
-  <!-- USER SETTINGS -->
-  <div class="settings">
-    <input id="username" placeholder="Your name" value="User">
-    <input id="toUser" placeholder="Chat with (username)" required>
-  </div>
-
-  <!-- ONLINE USERS -->
-  <div class="online-users" id="online-users">
-    <h4>Online Users</h4>
-    <div id="online-list"></div>
-  </div>
-
-  <!-- CHAT AREA -->
-  <div class="messages" id="messages"></div>
-
-  <!-- INPUT -->
-  <div class="input-area">
-    <input id="text" placeholder="Type a message to start conversation..." onkeydown="enterSend(event)">
-    <button onclick="sendMessage()">➤</button>
-  </div>
-
-</div>
-
-<script>
-const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
-const wsHost = location.hostname && location.hostname !== "" ? location.host : "localhost:8080";
-const socket = new WebSocket(`${wsProtocol}://${wsHost}`);
-
-const messages = document.getElementById("messages");
-const statusEl = document.getElementById("status");
-const onlineUsers = new Set();
-const sentMessages = [];
-
-socket.onopen = () => {
-  statusEl.textContent = "Online";
-  const username = document.getElementById("username").value || "User";
-  socket.send(JSON.stringify({
-    type: "register",
-    username: username
-  }));
-  
-  // Update header when chat partner changes
-  const toUserInput = document.getElementById("toUser");
-  toUserInput.addEventListener("input", updateHeader);
-  updateHeader();
-};
-
-function updateHeader() {
-  const toUser = document.getElementById("toUser").value;
-  const headerSpan = document.querySelector(".header span");
-  if (toUser) {
-    headerSpan.textContent = `Chat with ${toUser}`;
-  } else {
-    headerSpan.textContent = "Chat App";
-  }
-}
-
-socket.onclose = () => {
-  statusEl.textContent = "Offline";
-  console.error("WebSocket connection closed");
-};
-
-socket.onerror = (error) => {
-  console.error("WebSocket error:", error);
-  statusEl.textContent = "Connection Error";
-};
-
-socket.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  console.log("Received message:", msg);
-
-  if (msg.type === "status") {
-    if (msg.status === "online") {
-      onlineUsers.add(msg.username);
-    } else if (msg.status === "offline") {
-      onlineUsers.delete(msg.username);
-    }
-    updateOnlineUsers();
-  } else if (msg.type === "delivered") {
-    // Update the last sent private message to "delivered"
-    const lastPrivate = sentMessages.find(m => m.to === msg.to && m.status === "sending");
-    if (lastPrivate) {
-      lastPrivate.status = "delivered";
-      renderAllMessages();
-    }
-  } else if (msg.type === "private") {
-    const myName = document.getElementById("username").value || "User";
-    const chatPartner = document.getElementById("toUser").value;
-    
-    // Show message if it's for this user (either from or to)
-    if (msg.to === myName || msg.from === myName) {
-      // Auto-update "Chat with" field if empty and receiving a message
-      if (!chatPartner && msg.from !== myName) {
-        document.getElementById("toUser").value = msg.from;
-        updateHeader();
-      }
-      
-      // Check if message is already in sentMessages (to avoid duplicates)
-      const isDuplicate = sentMessages.some(m => 
-        m.from === msg.from && m.to === msg.to && m.text === msg.text && m.status === "sending"
-      );
-      
-      if (!isDuplicate) {
-        renderMessage(msg);
-      }
-    }
-  }
-};
-
-function updateOnlineUsers() {
-  const list = document.getElementById("online-list");
-  list.innerHTML = "";
-  onlineUsers.forEach(user => {
-    const div = document.createElement("div");
-    div.textContent = user;
-    list.appendChild(div);
-  });
-}
-
-function renderAllMessages() {
-  messages.innerHTML = "";
-  sentMessages.forEach(msg => renderMessage(msg));
-}
-
-function renderMessage(msg) {
-  const myName = document.getElementById("username").value || "User";
-  // Handle private messages (use 'from') vs room/global messages (use 'user')
-  const senderName = msg.from || msg.user;
-  const text = msg.text;
-  const status = msg.status;
-
-  const div = document.createElement("div");
-  div.classList.add("message");
-  div.classList.add(senderName === myName ? "me" : "other");
-
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  let statusText = "";
-  if (status) {
-    statusText = `<div class="status">${status}</div>`;
-  }
-
-  div.innerHTML = `
-    <div class="user">${senderName}</div>
-    <div>${text}</div>
-    <div class="time">${time}</div>
-    ${statusText}
-  `;
-
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
-}
-
-function sendMessage() {
-  const user = document.getElementById("username").value || "User";
-  const text = document.getElementById("text").value.trim();
-  const to = document.getElementById("toUser").value;
-
-  if (!text) return;
-  if (!to) {
-    alert("Please enter the username of the person you want to chat with");
-    return;
-  }
-
-  const msg = {
-    type: "private",
-    from: user,
-    to: to,
-    text: text,
-    status: "sending"
-  };
-
-  sentMessages.push(msg);
-  renderMessage(msg);
-  socket.send(JSON.stringify(msg));
-
-  document.getElementById("text").value = "";
-}
-
-function enterSend(e) {
-  if (e.key === "Enter") sendMessage();
-}
-</script>
-
+  <!-- Socket.IO Client Library -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
+

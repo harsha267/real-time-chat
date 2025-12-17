@@ -15,9 +15,31 @@ mongoose.connection.on("error", (err) => {
 });
 
 const messageSchema = new mongoose.Schema({
-  user: String,
-  text: String,
-  timestamp: { type: Date, default: Date.now }
+  messageId: { type: String, required: true, unique: true },
+  from: { type: String, required: true },
+  to: String, // For private messages
+  groupId: String, // For group messages
+  groupName: String, // For group messages
+  chatType: { type: String, enum: ["private", "group"], required: true },
+  text: { type: String, required: true },
+  status: { 
+    type: String, 
+    enum: ["sent", "delivered", "read"], 
+    default: "sent",
+    required: true 
+  },
+  timestamp: { type: Date, default: Date.now },
+  deliveredAt: Date,
+  readAt: Date,
+  deliveredTo: [String], // Array of usernames who received (for groups)
+  readBy: [String] // Array of usernames who read (for groups)
+}, {
+  timestamps: true
 });
+
+// Index for faster queries
+messageSchema.index({ messageId: 1 });
+messageSchema.index({ from: 1, to: 1 });
+messageSchema.index({ groupId: 1 });
 
 module.exports = mongoose.model("Message", messageSchema);

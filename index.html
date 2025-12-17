@@ -130,6 +130,21 @@ body {
   border-radius: 50%;
   cursor: pointer;
 }
+
+/* ONLINE USERS */
+.online-users {
+  padding: 8px;
+  background: #f0f0f0;
+  border-bottom: 1px solid #ddd;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.online-users h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: bold;
+}
 </style>
 </head>
 
@@ -143,11 +158,16 @@ body {
     <span class="status" id="status">Connecting...</span>
   </div>
 
-  <!-- USER / ROOM SETTINGS -->
+  <!-- USER SETTINGS -->
   <div class="settings">
     <input id="username" placeholder="Your name" value="User">
-    <input id="room" placeholder="Room (global)">
-    <input id="toUser" placeholder="Private to (optional)">
+    <input id="toUser" placeholder="Chat with (username)" required>
+  </div>
+
+  <!-- ONLINE USERS -->
+  <div class="online-users" id="online-users">
+    <h4>Online Users</h4>
+    <div id="online-list"></div>
   </div>
 
   <!-- CHAT AREA -->
@@ -155,7 +175,7 @@ body {
 
   <!-- INPUT -->
   <div class="input-area">
-    <input id="text" placeholder="Type a message..." onkeydown="enterSend(event)">
+    <input id="text" placeholder="Type a message to start conversation..." onkeydown="enterSend(event)">
     <button onclick="sendMessage()">➤</button>
   </div>
 
@@ -163,33 +183,128 @@ body {
 
 <script>
 const wsProtocol = location.protocol === "https:" ? "wss" : "ws";
-const wsHost = location.host || "localhost:8080";
+const wsHost = location.hostname && location.hostname !== "" ? location.host : "localhost:8080";
 const socket = new WebSocket(`${wsProtocol}://${wsHost}`);
 
 const messages = document.getElementById("messages");
 const statusEl = document.getElementById("status");
+const onlineUsers = new Set();
+const sentMessages = [];
 
-socket.onopen = () => statusEl.textContent = "Online";
-socket.onclose = () => statusEl.textContent = "Offline";
+socket.onopen = () => {
+  statusEl.textContent = "Online";
+  const username = document.getElementById("username").value || "User";
+  socket.send(JSON.stringify({
+    type: "register",
+    username: username
+  }));
+  
+  // Update header when chat partner changes
+  const toUserInput = document.getElementById("toUser");
+  toUserInput.addEventListener("input", updateHeader);
+  updateHeader();
+};
+
+function updateHeader() {
+  const toUser = document.getElementById("toUser").value;
+  const headerSpan = document.querySelector(".header span");
+  if (toUser) {
+    headerSpan.textContent = `Chat with ${toUser}`;
+  } else {
+    headerSpan.textContent = "Chat App";
+  }
+}
+
+socket.onclose = () => {
+  statusEl.textContent = "Offline";
+  console.error("WebSocket connection closed");
+};
+
+socket.onerror = (error) => {
+  console.error("WebSocket error:", error);
+  statusEl.textContent = "Connection Error";
+};
 
 socket.onmessage = (event) => {
   const msg = JSON.parse(event.data);
-  renderMessage(msg);
+  console.log("Received message:", msg);
+
+  if (msg.type === "status") {
+    if (msg.status === "online") {
+      onlineUsers.add(msg.username);
+    } else if (msg.status === "offline") {
+      onlineUsers.delete(msg.username);
+    }
+    updateOnlineUsers();
+  } else if (msg.type === "delivered") {
+    // Update the last sent private message to "delivered"
+    const lastPrivate = sentMessages.find(m => m.to === msg.to && m.status === "sending");
+    if (lastPrivate) {
+      lastPrivate.status = "delivered";
+      renderAllMessages();
+    }
+  } else if (msg.type === "private") {
+    const myName = document.getElementById("username").value || "User";
+    const chatPartner = document.getElementById("toUser").value;
+    
+    // Show message if it's for this user (either from or to)
+    if (msg.to === myName || msg.from === myName) {
+      // Auto-update "Chat with" field if empty and receiving a message
+      if (!chatPartner && msg.from !== myName) {
+        document.getElementById("toUser").value = msg.from;
+        updateHeader();
+      }
+      
+      // Check if message is already in sentMessages (to avoid duplicates)
+      const isDuplicate = sentMessages.some(m => 
+        m.from === msg.from && m.to === msg.to && m.text === msg.text && m.status === "sending"
+      );
+      
+      if (!isDuplicate) {
+        renderMessage(msg);
+      }
+    }
+  }
 };
 
-function renderMessage({ user, text }) {
+function updateOnlineUsers() {
+  const list = document.getElementById("online-list");
+  list.innerHTML = "";
+  onlineUsers.forEach(user => {
+    const div = document.createElement("div");
+    div.textContent = user;
+    list.appendChild(div);
+  });
+}
+
+function renderAllMessages() {
+  messages.innerHTML = "";
+  sentMessages.forEach(msg => renderMessage(msg));
+}
+
+function renderMessage(msg) {
   const myName = document.getElementById("username").value || "User";
+  // Handle private messages (use 'from') vs room/global messages (use 'user')
+  const senderName = msg.from || msg.user;
+  const text = msg.text;
+  const status = msg.status;
 
   const div = document.createElement("div");
   div.classList.add("message");
-  div.classList.add(user === myName ? "me" : "other");
+  div.classList.add(senderName === myName ? "me" : "other");
 
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+  let statusText = "";
+  if (status) {
+    statusText = `<div class="status">${status}</div>`;
+  }
+
   div.innerHTML = `
-    <div class="user">${user}</div>
+    <div class="user">${senderName}</div>
     <div>${text}</div>
     <div class="time">${time}</div>
+    ${statusText}
   `;
 
   messages.appendChild(div);
@@ -199,17 +314,25 @@ function renderMessage({ user, text }) {
 function sendMessage() {
   const user = document.getElementById("username").value || "User";
   const text = document.getElementById("text").value.trim();
-  const room = document.getElementById("room").value || "global";
-  const to = document.getElementById("toUser").value || null;
+  const to = document.getElementById("toUser").value;
 
   if (!text) return;
+  if (!to) {
+    alert("Please enter the username of the person you want to chat with");
+    return;
+  }
 
-  socket.send(JSON.stringify({
-    user,
-    text,
-    room,     // group chat
-    to        // private chat
-  }));
+  const msg = {
+    type: "private",
+    from: user,
+    to: to,
+    text: text,
+    status: "sending"
+  };
+
+  sentMessages.push(msg);
+  renderMessage(msg);
+  socket.send(JSON.stringify(msg));
 
   document.getElementById("text").value = "";
 }
